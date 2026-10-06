@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Plano interno com anotações pessoais
+PLANO-PORTFOLIO.md

@@ -1,233 +1,230 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import ComIA from './components/ComIA'
+import Demo from './components/Demo'
+import EstudoDeCaso from './components/EstudoDeCaso'
+import ProjetoCard from './components/ProjetoCard'
+import { GITHUB_URL, LINKEDIN_URL, PROJETOS } from './dados/projetos'
 
-const API_URL = 'https://qualificador-leads-ia-846p.onrender.com'
-const GITHUB_URL = 'https://github.com/jeanlimasx'
-const LINKEDIN_URL = 'https://www.linkedin.com/in/jeanlimasx/'
-const REPO_URL = 'https://github.com/jeanlimasx/qualificador-leads-ia'
+const PREFIXO = '#caso-'
 
-type Segmento = 'imobiliario' | 'academia'
-
-type Analise = {
-  classificacao: string
-  pontuacao: number
-  informacoes: { campo: string; valor: string }[]
-  faltando: string[]
-  resumo: string
-  proxima_acao: string
-}
-
-const EXEMPLOS: Record<Segmento, string> = {
-  imobiliario:
-    'Oi! Vi o anúncio do apartamento na Vila Mariana. Tenho uns 600 mil, vou usar FGTS e queria me mudar até o fim do ano. Dá pra visitar no sábado?',
-  academia:
-    'Boa noite! Quero perder uns 8kg até o verão, nunca treinei direito. Consigo ir de manhã cedo. Quanto custa o plano?',
-}
-
-const NOMES: Record<Segmento, string> = {
-  imobiliario: 'Imobiliário',
-  academia: 'Academia',
-}
-
-function corDaClassificacao(classificacao: string) {
-  const c = classificacao.toLowerCase()
-  if (c.includes('quente')) return 'quente'
-  if (c.includes('morno')) return 'morno'
-  return 'frio'
+function projetoDaUrl() {
+  const hash = window.location.hash
+  if (!hash.startsWith(PREFIXO)) return null
+  return PROJETOS.find((p) => p.id === hash.slice(PREFIXO.length))?.id ?? null
 }
 
 export default function App() {
-  const [segmento, setSegmento] = useState<Segmento>('imobiliario')
-  const [mensagem, setMensagem] = useState(EXEMPLOS.imobiliario)
-  const [carregando, setCarregando] = useState(false)
-  const [demorando, setDemorando] = useState(false)
-  const [erro, setErro] = useState('')
-  const [analise, setAnalise] = useState<Analise | null>(null)
+  // O estudo aberto vive na URL (#caso-<id>): dá para mandar o link e o "voltar" fecha
+  const [aberto, setAberto] = useState<string | null>(projetoDaUrl)
+  const origem = useRef<HTMLElement | null>(null)
+  const abertoPorClique = useRef(false)
 
-  // Acorda a API assim que a página abre (o plano gratuito do Render "dorme")
   useEffect(() => {
-    fetch(`${API_URL}/`).catch(() => {})
+    const aoMudarHash = () => {
+      const id = projetoDaUrl()
+      // Fechado pelo "voltar" do navegador: não há mais entrada para desfazer
+      if (!id) abertoPorClique.current = false
+      setAberto(id)
+    }
+    window.addEventListener('hashchange', aoMudarHash)
+    return () => window.removeEventListener('hashchange', aoMudarHash)
   }, [])
 
-  function trocarSegmento(novo: Segmento) {
-    setSegmento(novo)
-    setMensagem(EXEMPLOS[novo])
-    setAnalise(null)
-    setErro('')
+  // Devolve o foco ao botão que abriu o estudo
+  useEffect(() => {
+    if (!aberto && origem.current) {
+      origem.current.focus({ preventScroll: true })
+      origem.current = null
+    }
+  }, [aberto])
+
+  function abrir(id: string, elemento: HTMLElement) {
+    origem.current = elemento
+    abertoPorClique.current = true
+    window.location.hash = `caso-${id}`
   }
 
-  async function qualificar() {
-    if (!mensagem.trim()) {
-      setErro('Escreva a mensagem do lead para analisar.')
-      return
-    }
-    setCarregando(true)
-    setDemorando(false)
-    setErro('')
-    setAnalise(null)
-    const aviso = setTimeout(() => setDemorando(true), 6000)
-
-    try {
-      const resposta = await fetch(`${API_URL}/qualificar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ segmento, mensagem }),
-      })
-      const dados = await resposta.json()
-      if (!resposta.ok) throw new Error(dados.detail ?? 'A API respondeu com erro.')
-      setAnalise(dados)
-    } catch (e) {
-      setErro(
-        e instanceof Error && e.message !== 'Failed to fetch'
-          ? e.message
-          : 'Não foi possível falar com a API. Tente de novo em alguns segundos.',
-      )
-    } finally {
-      clearTimeout(aviso)
-      setCarregando(false)
-      setDemorando(false)
+  function fechar() {
+    if (abertoPorClique.current) {
+      // Desfaz a entrada que o clique criou no histórico
+      abertoPorClique.current = false
+      window.history.back()
+    } else {
+      // Chegou por link direto: limpa a URL sem sair do site
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      setAberto(null)
     }
   }
 
-  const temperatura = analise ? corDaClassificacao(analise.classificacao) : null
+  const projetoAberto = PROJETOS.find((p) => p.id === aberto) ?? null
 
   return (
-    <div className="pagina">
-      <header className="topo">
-        <span className="marca">Jean Lima</span>
-        <nav>
-          <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
-          <a href={LINKEDIN_URL} target="_blank" rel="noreferrer">LinkedIn</a>
-        </nav>
-      </header>
+    <>
+      <a className="pular" href="#conteudo">
+        Pular para o conteúdo
+      </a>
 
-      <main>
-        <section className="abertura">
-          <div className="intro">
-            <h1>Eu vendia para leads. Agora construo a IA que qualifica cada um deles.</h1>
-            <p>
-              Sou estudante de Engenharia de Software e passei os últimos anos em vendas consultivas,
-              com mais de R$1,4 milhão vendidos. Hoje junto as duas coisas: crio agentes de IA e
-              automações para vendas e atendimento.
-            </p>
-            <p className="dica">Teste agora: cole a mensagem de um lead e veja a análise da IA.</p>
-          </div>
+      <div className="faixa-escura abertura-faixa">
+        <div className="pagina">
+          <header className="topo">
+            <a className="marca" href="#conteudo" aria-label="Jean Lima, ir para o conteúdo">
+              Jean <span>Lima</span>
+            </a>
+            <nav aria-label="Principal">
+              <a className="ancora" href="#projetos">Projetos</a>
+              <a className="ancora" href="#ia">IA</a>
+              <a className="ancora" href="#demo">Demo</a>
+              <a className="ancora" href="#sobre">Sobre</a>
+              <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
+              <a href={LINKEDIN_URL} target="_blank" rel="noreferrer">LinkedIn</a>
+            </nav>
+          </header>
 
-          <div className="demo">
-            <div className="segmentos" role="group" aria-label="Segmento do negócio">
-              {(Object.keys(NOMES) as Segmento[]).map((s) => (
-                <button
-                  key={s}
-                  className={s === segmento ? 'ativo' : ''}
-                  onClick={() => trocarSegmento(s)}
-                  aria-pressed={s === segmento}
-                >
-                  {NOMES[s]}
-                </button>
-              ))}
-            </div>
-
-            <label htmlFor="mensagem">Mensagem do lead</label>
-            <textarea
-              id="mensagem"
-              rows={5}
-              value={mensagem}
-              onChange={(e) => setMensagem(e.target.value)}
-            />
-
-            <button className="principal" onClick={qualificar} disabled={carregando}>
-              {carregando ? 'Analisando…' : 'Qualificar lead'}
-            </button>
-
-            {demorando && (
-              <p className="aviso">
-                A API fica em espera quando ninguém usa. A primeira análise pode levar até um minuto.
+          <section className="abertura" aria-labelledby="titulo-principal">
+            <div className="intro">
+              <p className="status">
+                <span className="status-ponto" aria-hidden="true" />
+                Disponível para vaga de desenvolvedor júnior
               </p>
-            )}
-            {erro && <p className="erro">{erro}</p>}
-
-            {analise && temperatura && (
-              <div className={`resultado ${temperatura}`} aria-live="polite">
-                <div className="placar">
-                  <span className="classe">Lead {analise.classificacao}</span>
-                  <span className="pontos">{analise.pontuacao}/100</span>
-                </div>
-                <div className="termometro" aria-hidden="true">
-                  <span style={{ left: `${Math.min(100, Math.max(0, analise.pontuacao))}%` }} />
-                </div>
-
-                <p className="resumo">{analise.resumo}</p>
-
-                <dl className="dados">
-                  {analise.informacoes.map((info) => (
-                    <div key={info.campo}>
-                      <dt>{info.campo}</dt>
-                      <dd>{info.valor}</dd>
-                    </div>
-                  ))}
-                </dl>
-
-                {analise.faltando.length > 0 && (
-                  <div className="faltando">
-                    <h3>O que perguntar</h3>
-                    <ul>
-                      {analise.faltando.map((f) => (
-                        <li key={f}>{f}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div className="acao">
-                  <h3>Próxima ação</h3>
-                  <p>{analise.proxima_acao}</p>
-                </div>
+              <h1 id="titulo-principal">
+                Construo software que resolve <span className="marca-texto">problemas reais</span> de
+                negócio.
+              </h1>
+              <p>
+                Sou Jean Lima, estudante de Engenharia de Software. Antes de programar, passei anos em
+                vendas consultivas, com mais de R$ 1,4 milhão vendidos. Hoje construo aplicações web,
+                APIs e soluções com IA, do banco de dados ao deploy, usando o Claude Code como parceiro
+                de desenvolvimento.
+              </p>
+              <ul className="chips" aria-label="Tecnologias que uso">
+                {['Python', 'FastAPI', 'React', 'TypeScript', 'Next.js', 'Supabase', 'Claude Code'].map((s) => (
+                  <li key={s}>{s}</li>
+                ))}
+              </ul>
+              <div className="chamadas">
+                <a className="botao" href="#projetos">
+                  Ver projetos
+                </a>
+                <a className="botao secundario" href="#ia">
+                  Como uso IA
+                </a>
               </div>
-            )}
-          </div>
-        </section>
-
-        <section className="projetos">
-          <h2>Projetos</h2>
-
-          <article className="projeto destaque">
-            <h3>Qualificador de leads com IA</h3>
-            <p>
-              API que lê a mensagem de um lead, extrai os dados importantes e classifica o potencial de
-              compra. Os critérios de cada segmento ficam separados do código, a resposta da IA segue
-              um formato fixo pronto para CRM, e a API tenta de novo ou troca de modelo quando a IA fica
-              instável.
-            </p>
-            <p className="stack">Python, FastAPI, Pydantic, Gemini, Render</p>
-            <div className="links">
-              <a href={REPO_URL} target="_blank" rel="noreferrer">Ver código</a>
-              <a href={`${API_URL}/docs`} target="_blank" rel="noreferrer">Documentação da API</a>
             </div>
-          </article>
 
-          <article className="projeto">
-            <h3>Agente de atendimento para uma clínica</h3>
-            <p>
-              Agente de IA que responde pacientes e organiza o atendimento de uma clínica real. Foi
-              onde aprendi a lógica de um agente: entender a mensagem, decidir e agir.
+            {/* Vitrine decorativa: os mesmos prints aparecem nos cartões com texto alternativo */}
+            <div className="vitrine" aria-hidden="true">
+              {['caderneta', 'alvorada', 'qualificador'].map((id) => {
+                const capa = PROJETOS.find((p) => p.id === id)!.capa
+                return (
+                  <img
+                    key={id}
+                    className={`vitrine-${id}`}
+                    src={capa.src}
+                    alt=""
+                    width={capa.largura}
+                    height={capa.altura}
+                    decoding="async"
+                  />
+                )
+              })}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <main id="conteudo">
+        <div className="pagina">
+          <section className="projetos" id="projetos" aria-labelledby="projetos-titulo">
+            <p className="rotulo-secao">01 — Projetos</p>
+            <h2 id="projetos-titulo">Do problema ao deploy.</h2>
+            <p className="subtitulo">
+              Quatro projetos reais, um deles para cliente. Abra um estudo de caso para ver telas,
+              fluxo e as decisões técnicas por trás de cada um.
             </p>
-            <p className="stack">n8n, IA generativa · em desenvolvimento</p>
-          </article>
 
-          <article className="projeto">
-            <h3>Sistemas de organização financeira</h3>
-            <p>Ferramentas próprias para controlar entradas, gastos e metas financeiras.</p>
-            <p className="stack">Automação</p>
-          </article>
-        </section>
+            {PROJETOS.map((p, i) => (
+              <ProjetoCard
+                key={p.id}
+                projeto={p}
+                invertido={i % 2 === 1}
+                prioridade={i === 0}
+                onAbrir={abrir}
+              />
+            ))}
+          </section>
+        </div>
+
+        <ComIA />
+
+        <div className="pagina">
+          <section className="laboratorio" id="demo" aria-labelledby="demo-titulo">
+            <div className="laboratorio-texto">
+              <p className="rotulo-secao">03 — Demo ao vivo</p>
+              <h2 id="demo-titulo">Teste o qualificador de leads</h2>
+              <p>
+                Projeto em andamento: um SDR de IA que estou desenvolvendo para o setor de vendas da
+                empresa onde trabalho e, no futuro, para academias. Cole a mensagem de alguém
+                interessado na academia e veja como a IA classificaria esse contato.
+              </p>
+              <ul className="destaques">
+                <li>Temperatura do lead (frio, morno ou quente) e nota de 0 a 100</li>
+                <li>O que a pessoa já contou e o que ainda falta perguntar</li>
+                <li>Sugestão da próxima mensagem do vendedor</li>
+              </ul>
+              <p className="laboratorio-nota">
+                Também funciona para o mercado imobiliário: troque o tipo de negócio na demo.
+              </p>
+            </div>
+
+            <Demo />
+          </section>
+
+          <section className="sobre" id="sobre" aria-labelledby="sobre-titulo">
+            <p className="rotulo-secao">04 — Sobre</p>
+            <h2 id="sobre-titulo">Vendas e engenharia, do mesmo lado.</h2>
+            <div className="pilares">
+              <div>
+                <h3>Entendo o problema.</h3>
+                <p>
+                  Anos de vendas consultivas me ensinaram a ouvir o cliente antes de propor qualquer
+                  solução.
+                </p>
+              </div>
+              <div>
+                <h3>Construo a solução.</h3>
+                <p>
+                  Do banco de dados ao deploy: APIs em Python, interfaces em React e TypeScript,
+                  Postgres com Supabase.
+                </p>
+              </div>
+              <div>
+                <h3>Aplico IA com cuidado.</h3>
+                <p>
+                  Saída estruturada, validação e plano B quando o modelo falha, porque IA em produção
+                  precisa ser previsível.
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
       </main>
 
-      <footer className="rodape">
-        <p>Vamos conversar?</p>
-        <div className="links">
-          <a href={LINKEDIN_URL} target="_blank" rel="noreferrer">LinkedIn</a>
-          <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
+      <footer className="faixa-escura" id="contato">
+        <div className="pagina rodape">
+          <div>
+            <p className="rodape-titulo">
+              Vamos <span className="marca-texto">conversar?</span>
+            </p>
+            <p className="rodape-texto">Estou buscando minha primeira vaga como desenvolvedor júnior.</p>
+          </div>
+          <div className="links">
+            <a href={LINKEDIN_URL} target="_blank" rel="noreferrer">LinkedIn</a>
+            <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
+          </div>
         </div>
       </footer>
-    </div>
+
+      <EstudoDeCaso projeto={projetoAberto} onFechar={fechar} />
+    </>
   )
 }
