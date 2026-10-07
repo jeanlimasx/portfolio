@@ -3,6 +3,7 @@ import ComIA from './components/ComIA'
 import Demo from './components/Demo'
 import EstudoDeCaso from './components/EstudoDeCaso'
 import ProjetoCard from './components/ProjetoCard'
+import Prompts from './components/Prompts'
 import { GITHUB_URL, LINKEDIN_URL, PROJETOS } from './dados/projetos'
 
 const PREFIXO = '#caso-'
@@ -73,6 +74,7 @@ export default function App() {
             <nav aria-label="Principal">
               <a className="ancora" href="#projetos">Projetos</a>
               <a className="ancora" href="#ia">IA</a>
+              <a className="ancora" href="#prompts">Prompts</a>
               <a className="ancora" href="#demo">Demo</a>
               <a className="ancora" href="#sobre">Sobre</a>
               <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
@@ -157,9 +159,11 @@ export default function App() {
         <ComIA />
 
         <div className="pagina">
+          <Prompts />
+
           <section className="laboratorio" id="demo" aria-labelledby="demo-titulo">
             <div className="laboratorio-texto">
-              <p className="rotulo-secao">03 — Demo ao vivo</p>
+              <p className="rotulo-secao">04 — Demo ao vivo</p>
               <h2 id="demo-titulo">Teste o qualificador de leads</h2>
               <p>
                 Projeto em andamento: um SDR de IA que estou desenvolvendo para o setor de vendas da
@@ -180,7 +184,7 @@ export default function App() {
           </section>
 
           <section className="sobre" id="sobre" aria-labelledby="sobre-titulo">
-            <p className="rotulo-secao">04 — Sobre</p>
+            <p className="rotulo-secao">05 — Sobre</p>
             <h2 id="sobre-titulo">Vendas e engenharia, do mesmo lado.</h2>
             <div className="pilares">
               <div>
